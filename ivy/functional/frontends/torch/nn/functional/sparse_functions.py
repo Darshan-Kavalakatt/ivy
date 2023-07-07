@@ -18,6 +18,12 @@ def embedding(
         len(weight.shape), 2, message="weight must be 2-d", as_array=False
     )
     input = ivy.astype(input, "int64")
+    
+    if padding_idx is not None:
+        weight = ivy.concatenate(
+            [weight[:padding_idx], ivy.zeros_like(weight[padding_idx])], axis=0
+        )
+    
     if max_norm is None:
         ret = ivy.embedding(weight, input)
     else:
@@ -30,6 +36,14 @@ def embedding(
             norms = ivy.repeat(norms, ret.shape[-1], axis=-1)
             ret = ivy.where(norms > max_norm, ret * max_norm / norms, ret)
             ret = ivy.where(norms < -max_norm, ret * -max_norm / norms, ret)
+    
+    if scale_grad_by_freq:
+        freq = ivy.bincount(input)
+        ret = ret * (1.0 / ivy.sqrt(freq[input]))
+    
+    if sparse:
+        ret = ivy.to_sparse(ret)
+    
     return ret
 
 
